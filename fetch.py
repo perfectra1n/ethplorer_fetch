@@ -20,20 +20,42 @@ def make_request(
 def fetch_address_tokens(address: str):
     params = {"showEthtotals": "true"}
     response = make_request(path=f"/getAddressInfo/{address}", params=params)
-    address_tokens = {response.json()["address"]: response.json()["tokens"]}
+    try:
+        try:
+            response.json()["tokens"]
+        except KeyError:
+            print(f"No tokens were found for address: '{address}'.")
+            return
+        address_tokens = {response.json()["address"]: response.json()["tokens"]}
+    except KeyError as e:
+        print("Something had an absolute STROKE!")
+        print(e)
+        print("Response from server:")
+        print(response.text)
 
     return address_tokens
 
-def get_number_of_tokens(address_tokens):
+def get_number_and_value_of_tokens(address_tokens):
     for address, tokens in address_tokens.items():
         for token in tokens:
             num_of_tokens = float(token["rawBalance"]) / 10**int(token["tokenInfo"]["decimals"])
 
+            # Check if the token even has a price, if it's false, that means that it's most likely a scam coin.
             if token["tokenInfo"]["price"]:
                 token_value_in_usd = num_of_tokens * token["tokenInfo"]["price"]["rate"]
+                
+                # Make sure that this token's value is > 1 dollar
                 if token_value_in_usd > 1:
-                    print(token["tokenInfo"]["name"])
-                    print(token_value_in_usd)
+                    
+                    # Check to see if we're already storing this coin
+                    token_found = False
+                    for token_dict in list_of_token_dicts:
+                        if token["tokenInfo"]["name"] == token_dict["name"]:
+                            token_dict["value"] += token_value_in_usd
+                            token_found = True
+                            break
+                    if not token_found:
+                        list_of_token_dicts.append({"name":token["tokenInfo"]["name"], "value":token_value_in_usd})
     return
 
 if __name__ == "__main__":
@@ -58,6 +80,26 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    list_of_token_dicts = []
+
     print("Starting to fetch now...")
 
-    get_number_of_tokens(fetch_address_tokens("0x7496B3EB2a23d5ee2F23a9B29c93e14F1873DF52"))
+    for address in args.addresses:
+        tokens = fetch_address_tokens(address)
+        if tokens:
+            get_number_and_value_of_tokens(tokens)
+    
+    # Sort the list according to the value in each dictionary
+    # https://stackoverflow.com/questions/72899/how-do-i-sort-a-list-of-dictionaries-by-a-value-of-the-dictionary
+    new_list = sorted(list_of_token_dicts, key=lambda k: k['value'])
+    new_list.reverse()
+    
+    print()
+    print("Pretty printing data...")
+    for coin in new_list:
+        print()
+        print("----------- New Coin -----------")
+        print(coin["name"])
+        print(f"{coin['value']} USD")
+        print("--------------------------------")
+        print()
