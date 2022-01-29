@@ -1,6 +1,6 @@
 import requests
 import argparse
-
+import pandas as pd
 
 def make_request(
     method="GET",
@@ -112,3 +112,6 @@ if __name__ == "__main__":
         print(f"{coin['value']} USD")
         print("--------------------------------")
         print()
+
+    df = pd.DataFrame(list_of_token_dicts)
+    df.to_excel("output.xlsx")
