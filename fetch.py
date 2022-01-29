@@ -14,6 +14,7 @@ def make_request(
 
     if response.status_code != 200:
         print("Ethplorer response was not okay.")
+        print(f"Response from Ethplorer was {response.status_code}, with text {response.text}")
     return response
 
 
