@@ -2,6 +2,8 @@ import requests
 import argparse
 import pandas as pd
 
+import log
+
 def make_request(
     method="GET",
     host="https://api.ethplorer.io",
@@ -13,8 +15,8 @@ def make_request(
     response = requests.request(method, f"{host}{path}", params=params)
 
     if response.status_code != 200:
-        print("Ethplorer response was not okay.")
-        print(f"Response from Ethplorer was {response.status_code}, with text {response.text}")
+        logger.error("Ethplorer response was not okay.")
+        logger.error(f"Response from Ethplorer was {response.status_code}, with text {response.text}")
     return response
 
 
@@ -25,14 +27,14 @@ def fetch_address_tokens(address: str):
         try:
             response.json()["tokens"]
         except KeyError:
-            print(f"No tokens were found for address: '{address}'.")
+            logger.warning(f"No tokens were found for address: '{address}'.")
             return
         address_tokens = {response.json()["address"]: response.json()["tokens"]}
     except KeyError as e:
-        print("Something had an absolute STROKE!")
-        print(e)
-        print("Response from server:")
-        print(response.text)
+        logger.error("Something had an absolute STROKE!")
+        logger.error(e)
+        logger.error("Response from server:")
+        logger.error(response.text)
 
     return address_tokens
 
@@ -77,6 +79,12 @@ if __name__ == "__main__":
         help="Required. Provide your API key for Ethplorer.",
     )
     parser.add_argument(
+        "--output",
+        "-o",
+        help="Excel file to save the coin output as.",
+        default="output.xlsx"
+    )
+    parser.add_argument(
         "-a",
         "--addresses",
         nargs="+",
@@ -90,9 +98,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    logger = log.get_logger("Ethplorer Token Fetch", debug=args.debug)
+
     list_of_token_dicts = []
 
-    print("Starting to fetch now...")
+    logger.info("Starting to fetch now...")
 
     for address in args.addresses:
         tokens = fetch_address_tokens(address)
@@ -104,15 +114,7 @@ if __name__ == "__main__":
     new_list = sorted(list_of_token_dicts, key=lambda k: k["value"])
     new_list.reverse()
 
-    print()
-    print("Pretty printing data...")
-    for coin in new_list:
-        print()
-        print("----------- New Coin -----------")
-        print(coin["name"])
-        print(f"{coin['value']} USD")
-        print("--------------------------------")
-        print()
-
     df = pd.DataFrame(list_of_token_dicts)
-    df.to_excel("output.xlsx")
+    df.to_excel(args.output)
+    logger.info(f"Coins have been dumped to '{args.output}'.")
+    logger.info("End of script.")
